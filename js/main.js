@@ -4,7 +4,13 @@ function Hero(game, x, y) {
   this.anchor.set(0.5, 0.5);
   this.game.physics.enable(this);
   this.body.collideWorldBounds = true;
-}
+
+  // Add Hero Animations
+  this.animations.add('stop', [0]);
+  this.animations.add('run', [1, 2], 8, true); // 8 FPS Looped
+  this.animations.add('jump', [3]);
+  this.animations.add('fall' [4]);
+};
 
 // Inherit from Phaser.sprite
 Hero.prototype = Object.create(Phaser.Sprite.prototype);
@@ -13,6 +19,12 @@ Hero.prototype.constructor = Hero;
 Hero.prototype.move = function(direction) {
   const SPEED = 200;
   this.body.velocity.x = direction * SPEED;
+  if(this.body.velocity.x < 0) {
+    this.scale.x = -1;
+  }
+  else if(this.body.velocity.x > 0) {
+    this.scale.x = 1;
+  }
 };
 
 Hero.prototype.jump = function() {
@@ -24,11 +36,36 @@ Hero.prototype.jump = function() {
   }
 
   return canJump;
-}
+};
 
 Hero.prototype.bounce = function() {
   const BOUNCE_SPEED = 200;
   this.body.velocity.y = -BOUNCE_SPEED;
+};
+
+Hero.prototype._getAnimationName = function() {
+  let name = 'stop'; // Default Animation
+  // Jumping
+  if(this.body.velocity.y < 0) {
+    name = 'jump';
+  }
+  // Falling
+  else if(this.body.velocity >= 0 && !this.body.touching.down) {
+    name = 'fall';
+  }
+  else if(this.body.velocity.x !== 0 && this.body.touching.down) {
+    name = 'run';
+  }
+
+  return name;
+};
+
+Hero.prototype.update = function() {
+  // Update Sprite Animation if Needed
+  let animationName = this._getAnimationName();
+  if(this.animations.name !== animationName) {
+    this.animations.play(animationName);
+  }
 }
 
 function Spider(game, x, y) {
@@ -43,7 +80,7 @@ function Spider(game, x, y) {
   this.game.physics.enable(this);
   this.body.collideWorldBounds = true;
   this.body.velocity.x = Spider.SPEED;
-}
+};
 
 Spider.SPEED = 100;
 
@@ -59,7 +96,7 @@ Spider.prototype.update = function() {
   else if(this.body.touching.left || this.body.blocked.left) {
     this.body.velocity.x = Spider.SPEED  // Turn Right
   }
-}
+};
 
 Spider.prototype.die = function() {
   this.body.enable = false;
@@ -67,7 +104,7 @@ Spider.prototype.die = function() {
   this.animations.play('die').onComplete.addOnce(function() {
     this.kill();
   }, this);
-}
+};
 
 PlayState = {};
 
@@ -99,6 +136,7 @@ PlayState.preload = function() {
   this.game.load.image('invisible-wall', 'images/invisible_wall.png');
   this.game.load.image('icon:coin', 'images/coin_icon.png');
   this.game.load.image('font:numbers', 'images/numbers.png');
+  this.game.load.image('key', 'images/key.png');
 
   this.game.load.audio('sfx:jump', 'audio/jump.wav');
   this.game.load.audio('sfx:coin', 'audio/coin.wav');
@@ -107,6 +145,7 @@ PlayState.preload = function() {
   this.game.load.spritesheet('coin', 'images/coin_animated.png', 22, 22);
   this.game.load.spritesheet('spider', 'images/spider.png', 42, 32);
   this.game.load.spritesheet('hero', 'images/hero.png', 36, 42);
+  this.game.load.spritesheet('door', 'images/door.png', 42, 66);
 };
 
 PlayState.create = function() {
@@ -126,9 +165,10 @@ PlayState.update = function() {
   this._handleInput();
   this.coinFont.text = `x${this.coinPickupCount}`;
 
-}
+};
 
 PlayState._loadlevel = function(data) {
+  this.bgDecoration = this.game.add.group();
   this.platforms = this.game.add.group();
   this.coins = this.game.add.group();
   this.spiders = this.game.add.group();
@@ -140,6 +180,10 @@ PlayState._loadlevel = function(data) {
   this._spawnCharacters({hero: data.hero, spiders: data.spiders});
   // Spawn Coins
   data.coins.forEach(this._spawnCoin, this);
+  // Spawn Door
+  this._spawnDoor(data.door.x, data.door.y);
+  // Spawn Key
+  this._spawnKey(data.key.x, data.key.y);
   // Enable Gravity
   const GRAVITY = 1200;
   this.game.physics.arcade.gravity.y = GRAVITY;
@@ -172,7 +216,7 @@ PlayState._spawnCoin = function(coin) {
   sprite.animations.play('rotate');
   this.game.physics.enable(sprite);
   sprite.body.allowGravity = false;
-}
+};
 
 PlayState._spawnEnemyWall = function(x, y, side) {
   let sprite = this.enemyWalls.create(x, y, 'invisible-wall');
@@ -181,7 +225,21 @@ PlayState._spawnEnemyWall = function(x, y, side) {
   this.game.physics.enable(sprite);
   sprite.body.allowGravity = false;
   sprite.body.immovable = true;
-}
+};
+
+PlayState._spawnDoor = function(x, y) {
+  this.door = this.bgDecoration.create(x, y, 'door');
+  this.door.anchor.set(0.5, 1);
+  this.game.physics.enable(this.door);
+  this.door.body.allowGravity = false;
+};
+
+PlayState._spawnKey = function(x, y) {
+  this.key = this.bgDecoration.create(x, y, 'key');
+  this.key.anchor.set(0.5, 0.5);
+  this.game.physics.enable(this.key);
+  this.key.body.allowGravity = false;
+};
 
 PlayState._handleInput = function() {
   if(this.keys.left.isDown) { // Move Hero Left
@@ -211,7 +269,7 @@ PlayState._onHeroVsEnemy = function(hero, enemy) {
     this.sfx.stomp.play();
     this.game.state.restart();
   }
-}
+};
 
 PlayState._handleCollisions = function() {
   this.game.physics.arcade.collide(this.spiders, this.platforms);
@@ -233,10 +291,10 @@ PlayState._createHud = function() {
   this.hud.add(coinIcon);
   this.hud.position.set(10, 10);
   this.hud.add(coinScoreImg);
-}
+};
 
 window.onload = function() {
   let game = new Phaser.Game(960, 600, Phaser.AUTO, 'game');
   game.state.add('play', PlayState);
   game.state.start('play');
-}
+};
