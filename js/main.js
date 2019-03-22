@@ -12,8 +12,8 @@ function Hero(game, x, y) {
   this.animations.add('stop', [0]);
   this.animations.add('run', [1, 2], 8, true); // 8 FPS Looped
   this.animations.add('jump', [3]);
-  this.animations.add('fall' [4]);
-  this.animations.add('die' [6, 5, 6, 5, 6, 5, 6, 6, 6, 6, 6, 6], 12);
+  this.animations.add('fall', [4]);
+  this.animations.add('kill', [5, 6, 5, 6, 5, 6], 6);
 };
 
 // Inherit from Phaser.sprite
@@ -66,9 +66,11 @@ Hero.prototype._getAnimationName = function() {
 
 Hero.prototype.update = function() {
   // Update Sprite Animation if Needed
-  let animationName = this._getAnimationName();
-  if(this.animations.name !== animationName) {
-    this.animations.play(animationName);
+  if(this.body.enable) {
+    let animationName = this._getAnimationName();
+    if(this.animations.name !== animationName) {
+      this.animations.play(animationName);
+    }
   }
 };
 
@@ -285,8 +287,10 @@ PlayState._onHeroVsEnemy = function(hero, enemy) {
       this.sfx.stomp.play();
   }
   else { // Game Over -> Restart Game
-    // TODO: Add death animation
-    this.game.state.restart(true, false, {level: this.level});
+    hero.body.enable = false;
+    hero.animations.play('kill').onComplete.addOnce(function () {
+        this.game.state.restart(true, false, {level: this.level});
+    }, this);
   }
 };
 
