@@ -244,7 +244,7 @@ PlayState._spawnDoor = function(x, y) {
   this.door.anchor.set(0.5, 1);
   this.game.physics.enable(this.door);
   this.door.body.allowGravity = false;
-  this.door.animations.add('open', [0, 0, 1, 1, 1], 5);
+  this.door.animations.add('open', [0, 1]);
 };
 
 PlayState._spawnKey = function(x, y) {
@@ -298,12 +298,15 @@ PlayState._onHeroVsKey = function(hero, key) {
 
 PlayState._onHeroVsDoor = function(hero, door) {
   this.sfx.door.play();
-  // this.game.input.keyboard.enabled = false;
-  //hero.body.enable = false;
-  door.animations.play('open').onComplete.addOnce(function() {
-    // this.game.input.keyboard.enabled = true;
-    this.game.state.restart(true, false, { level: this.level + 1});
+  hero.body.enable = false;
+  door.animations.play('open').onComplete.addOnce(function () {
+    this.game.add.tween(hero)
+      .to({alpha: 0, x: door.centerX}, 300, Phaser.Easing.Linear.None)
+      .start().onComplete.addOnce(function() {
+          this.game.state.restart(true, false, { level: this.level + 1});
+      }, this);
   }, this);
+
 }
 
 PlayState._handleCollisions = function() {
