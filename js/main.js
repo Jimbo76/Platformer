@@ -158,6 +158,7 @@ PlayState.preload = function() {
   this.game.load.spritesheet('hero', 'images/hero.png', 36, 42);
   this.game.load.spritesheet('door', 'images/door.png', 42, 66);
   this.game.load.spritesheet('icon:key', 'images/key_icon.png', 34, 30);
+  this.game.load.spritesheet('decor', 'images/decor.png', 42, 42);
 };
 
 PlayState.create = function() {
@@ -170,7 +171,9 @@ PlayState.create = function() {
     key: this.game.add.audio('sfx:key'),
     door: this.game.add.audio('sfx:door')
   };
-  this.game.add.audio('bgm').play();;
+  // this.game.add.audio('bgm').play();
+  this.music = this.game.add.audio('bgm');
+  this.music.play();
   this._createHud();
 };
 
@@ -196,11 +199,14 @@ PlayState._loadlevel = function(data) {
   data.coins.forEach(this._spawnCoin, this);
   // Spawn Door
   this._spawnDoor(data.door.x, data.door.y);
+  // Spawn Decor
+  data.decoration.forEach(this._spawnDecor, this);
   // Spawn Key
   this._spawnKey(data.key.x, data.key.y);
   // Enable Gravity
   const GRAVITY = 1200;
   this.game.physics.arcade.gravity.y = GRAVITY;
+  this.camera.flash(0x000000);
 };
 
 PlayState._spawnPlatform = function(platform) {
@@ -249,6 +255,10 @@ PlayState._spawnDoor = function(x, y) {
   this.door.animations.add('open', [0, 1]);
 };
 
+PlayState._spawnDecor = function(decor) {
+  let sprite = this.bgDecoration.create(decor.x, decor.y, 'decor', decor.frame);
+}
+
 PlayState._spawnKey = function(x, y) {
   this.key = this.bgDecoration.create(x, y, 'key');
   this.key.anchor.set(0.5, 0.5);
@@ -288,7 +298,9 @@ PlayState._onHeroVsEnemy = function(hero, enemy) {
   }
   else { // Game Over -> Restart Game
     hero.body.enable = false;
+    this.sfx.stomp.play();
     hero.animations.play('kill').onComplete.addOnce(function () {
+        this.music.destroy();
         this.game.state.restart(true, false, {level: this.level});
     }, this);
   }
@@ -307,7 +319,11 @@ PlayState._onHeroVsDoor = function(hero, door) {
     this.game.add.tween(hero)
       .to({alpha: 0, x: door.centerX}, 300, Phaser.Easing.Linear.None)
       .start().onComplete.addOnce(function() {
-          this.game.state.restart(true, false, { level: this.level + 1});
+        this.music.destroy();
+        this.camera.fade(0x000000);
+        this.camera.onFadeComplete.addOnce(function() {
+            this.game.state.restart(true, false, { level: this.level + 1});
+        }, this);
       }, this);
   }, this);
 
